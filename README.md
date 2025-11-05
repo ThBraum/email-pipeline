@@ -5,6 +5,18 @@ Email Pipeline
 
 This project demonstrates an asynchronous and resilient email delivery pipeline with observability, built in .NET 8.
 
+Architecture diagram
+--------------------
+
+The diagrams below reflect the current state of this repository:
+
+<p align="center">
+  <img src="docs/email-pipeline.en.jpeg" alt="Email Pipeline architecture" width="820" />
+  <br/>
+  <sub>Solid arrows = implemented · Dashed arrows = planned/not yet in code</sub>
+</p>
+
+
 Overview
 --------
 
