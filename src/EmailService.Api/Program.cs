@@ -66,11 +66,31 @@ builder.Services.AddOpenTelemetry()
 
 var app = builder.Build();
 
-// apply migrations
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<EmailDbContext>();
-    db.Database.Migrate();
+    var sql = """
+    CREATE TABLE IF NOT EXISTS "Emails" (
+        "Id" uuid PRIMARY KEY,
+        "To" varchar(512) NOT NULL,
+        "Subject" varchar(256) NOT NULL,
+        "Body" text NOT NULL,
+        "IdempotencyKey" varchar(128) NOT NULL,
+        "Status" int NOT NULL,
+        "CreatedAtUtc" timestamp without time zone NOT NULL,
+        "SentAtUtc" timestamp without time zone NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_emails_idemp ON "Emails"("IdempotencyKey");
+    CREATE TABLE IF NOT EXISTS "EmailAttempts" (
+        "Id" bigserial PRIMARY KEY,
+        "EmailId" uuid NOT NULL REFERENCES "Emails"("Id") ON DELETE CASCADE,
+        "AttemptNumber" int NOT NULL,
+        "Success" boolean NOT NULL,
+        "Error" text NULL,
+        "TimestampUtc" timestamp without time zone NOT NULL
+    );
+    """;
+    db.Database.ExecuteSqlRaw(sql);
 }
 
 // ---------- ENDPOINTS ----------
