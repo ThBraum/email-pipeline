@@ -9,6 +9,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using RabbitMQ.Client;
 using StackExchange.Redis;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,6 +24,18 @@ var rabbitUri  = new Uri($"amqp://{rabbitUser}:{rabbitPass}@{rabbitHost}/");
 
 // ---------- INFRA ----------
 builder.Services.AddDbContext<EmailDbContext>(o => o.UseNpgsql(pg));
+
+// Swagger / OpenAPI
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(o =>
+{
+    o.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Email Service API",
+        Version = "v1",
+        Description = "API para enfileirar e consultar emails enviados pelo pipeline."
+    });
+});
 
 builder.Services.AddHealthChecks()
     .AddNpgSql(pg)
@@ -96,6 +109,13 @@ using (var scope = app.Services.CreateScope())
 // ---------- ENDPOINTS ----------
 app.MapHealthChecks("/health");
 app.MapGet("/", () => Results.Redirect("/health"));
+
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Email Service API v1");
+    c.RoutePrefix = "swagger";
+});
 
 // POST /emails -> DB + POST RabbitMQ
 app.MapPost("/emails", async (EmailDbContext db, IPublishEndpoint bus, IConnectionMultiplexer redis, EmailDto dto) =>
