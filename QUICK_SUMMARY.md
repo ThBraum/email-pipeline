@@ -24,7 +24,7 @@ If you only look at one thing, check the diagram below and the endpoint `POST /e
 - How do I run it locally with Docker?
 
   1) From the repo root, start everything:
-     
+
      ```zsh
      docker compose up --build
      ```
@@ -36,7 +36,7 @@ If you only look at one thing, check the diagram below and the endpoint `POST /e
      - Mailhog (SMTP/Web): http://localhost:8025
      - Prometheus (metrics UI): http://localhost:9090
   3) Send a sample request to enqueue an email (idempotency key optional):
-     
+
      ```zsh
      curl -X POST http://localhost:8080/emails \
        -H 'Content-Type: application/json' \
@@ -94,7 +94,7 @@ If you only look at one thing, check the diagram below and the endpoint `POST /e
   3) Open Prometheus UI: `http://localhost:9090` and try basic queries like `http_requests_duration_seconds_count` (ASP.NET) or `process_cpu_seconds_total` (runtime). Metric names vary by OTel/ASP.NET version.
   4) Traces: they are sent to the Collector; to visualize traces you can add a UI like Jaeger/Tempo (not included by default in this stack).
 
-- Default credentials for PostgreSQL and RabbitMQ 
+- Default credentials for PostgreSQL and RabbitMQ
 
   - PostgreSQL: host `localhost`, port `5432`, database `emails`, user `postgres`, password `postgres`.
   - RabbitMQ UI: `http://localhost:15672` with user `guest`, password `guest`. AMQP port `5672`.

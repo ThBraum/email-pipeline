@@ -10,7 +10,7 @@ var builder = Host.CreateApplicationBuilder(args);
 
 // ---- CONFIG ----
 var pg = builder.Configuration.GetConnectionString("Postgres")
-		 ?? "Host=postgres;Port=5432;Database=emails;Username=postgres;Password=postgres";
+         ?? "Host=postgres;Port=5432;Database=emails;Username=postgres;Password=postgres";
 var rabbitHost = builder.Configuration["Rabbit:Host"] ?? "rabbitmq";
 var rabbitUser = builder.Configuration["Rabbit:User"] ?? "guest";
 var rabbitPass = builder.Configuration["Rabbit:Pass"] ?? "guest";
@@ -28,31 +28,31 @@ builder.Services.AddScoped<IEmailSender>(_ => new SmtpEmailSender(smtpHost, smtp
 // ---- MASS TRANSIT ----
 builder.Services.AddMassTransit(x =>
 {
-	x.AddConsumer<EmailRequestConsumer>();
-	x.UsingRabbitMq((ctx, cfg) =>
-	{
-		cfg.Host(rabbitHost, "/", h =>
-		{
-			h.Username(rabbitUser);
-			h.Password(rabbitPass);
-		});
-		// Configura endpoints convencionais (fila para o consumer)
-		cfg.ConfigureEndpoints(ctx);
-	});
+    x.AddConsumer<EmailRequestConsumer>();
+    x.UsingRabbitMq((ctx, cfg) =>
+    {
+        cfg.Host(rabbitHost, "/", h =>
+        {
+            h.Username(rabbitUser);
+            h.Password(rabbitPass);
+        });
+        // Configura endpoints convencionais (fila para o consumer)
+        cfg.ConfigureEndpoints(ctx);
+    });
 });
 
 // ---- OpenTelemetry (mínimo para métricas/traces do worker) ----
 builder.Services.AddOpenTelemetry()
-	.ConfigureResource(r => r.AddService("EmailService.Worker"))
-	.WithMetrics(m => m
-		.AddRuntimeInstrumentation()
-		.AddMeter(EmailRequestConsumer.MeterName)
-		.AddOtlpExporter(o => o.Endpoint =
-			new Uri(builder.Configuration["Otel:Endpoint"] ?? "http://otel-collector:4317")))
-	.WithTracing(t => t
-		.AddSource(EmailRequestConsumer.ActivitySourceName)
-		.AddOtlpExporter(o => o.Endpoint =
-			new Uri(builder.Configuration["Otel:Endpoint"] ?? "http://otel-collector:4317")));
+    .ConfigureResource(r => r.AddService("EmailService.Worker"))
+    .WithMetrics(m => m
+        .AddRuntimeInstrumentation()
+        .AddMeter(EmailRequestConsumer.MeterName)
+        .AddOtlpExporter(o => o.Endpoint =
+            new Uri(builder.Configuration["Otel:Endpoint"] ?? "http://otel-collector:4317")))
+    .WithTracing(t => t
+        .AddSource(EmailRequestConsumer.ActivitySourceName)
+        .AddOtlpExporter(o => o.Endpoint =
+            new Uri(builder.Configuration["Otel:Endpoint"] ?? "http://otel-collector:4317")));
 
 // Opcional: manter um HostedService simples para heartbeat de log
 builder.Services.AddHostedService<Worker>();

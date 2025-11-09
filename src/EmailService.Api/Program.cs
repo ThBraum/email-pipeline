@@ -20,7 +20,7 @@ var redisConn = builder.Configuration["Redis:Connection"] ?? "redis:6379";
 var rabbitHost = builder.Configuration["Rabbit:Host"] ?? "rabbitmq";
 var rabbitUser = builder.Configuration["Rabbit:User"] ?? "guest";
 var rabbitPass = builder.Configuration["Rabbit:Pass"] ?? "guest";
-var rabbitUri  = new Uri($"amqp://{rabbitUser}:{rabbitPass}@{rabbitHost}/");
+var rabbitUri = new Uri($"amqp://{rabbitUser}:{rabbitPass}@{rabbitHost}/");
 
 // ---------- INFRA ----------
 builder.Services.AddDbContext<EmailDbContext>(o => o.UseNpgsql(pg));
