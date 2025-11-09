@@ -1,10 +1,12 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
 namespace EmailService.Infrastructure;
 
 public enum EmailStatus { Queued, Sent, Failed }
 
+[Table("Emails")]
 public class Email
 {
     [Key] public Guid Id { get; set; }
@@ -18,6 +20,7 @@ public class Email
     public List<EmailAttempt> Attempts { get; set; } = new();
 }
 
+[Table("EmailAttempts")]
 public class EmailAttempt
 {
     [Key] public long Id { get; set; }
@@ -37,8 +40,9 @@ public class EmailDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder b)
     {
+        b.Entity<Email>().ToTable("Emails");
         b.Entity<Email>().HasIndex(x => x.IdempotencyKey).IsUnique(false);
-
+        b.Entity<EmailAttempt>().ToTable("EmailAttempts");
         b.Entity<EmailAttempt>().HasOne(a => a.Email).WithMany(e => e.Attempts).HasForeignKey(a => a.EmailId);
     }
 }
