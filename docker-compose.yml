@@ -4,14 +4,8 @@ services:
     build:
       context: ./src
       dockerfile: ./EmailService.Api/Dockerfile
-    environment:
-      ASPNETCORE_URLS: http://0.0.0.0:8080
-      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=emails;Username=postgres;Password=postgres
-      Redis__Connection: redis:6379
-      Rabbit__Host: rabbitmq
-      Rabbit__User: guest
-      Rabbit__Pass: guest
-      Otel__Endpoint: http://otel-collector:4317
+    env_file:
+      - ./.env
     ports:
       - "8080:8080"
     depends_on: [postgres, rabbitmq, redis, mailhog, otel-collector]
@@ -19,18 +13,8 @@ services:
     build:
       context: ./src
       dockerfile: ./EmailService.Worker/Dockerfile
-    environment:
-      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=emails;Username=postgres;Password=postgres
-      Redis__Connection: redis:6379
-      Rabbit__Host: rabbitmq
-      Rabbit__User: guest
-      Rabbit__Pass: guest
-      Smtp__Host: mailhog
-      Smtp__Port: 1025
-      Smtp__From: no-reply@example.com
-      RateLimit__MaxPerMinute: "60"
-      Idempotency__TtlSeconds: "3600"
-      Otel__Endpoint: http://otel-collector:4317
+    env_file:
+      - ./.env
     depends_on: [postgres, rabbitmq, redis, mailhog, otel-collector]
   postgres:
     image: postgres:16
