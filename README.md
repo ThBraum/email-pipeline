@@ -17,6 +17,8 @@ The diagrams below reflect the current state of this repository:
 </p>
 
 
+See [QUICK_SUMMARY.md](./QUICK_SUMMARY.md) for QUICK SUMMARY overview.
+
 Overview
 --------
 

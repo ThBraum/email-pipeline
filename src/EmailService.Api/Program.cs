@@ -9,6 +9,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using RabbitMQ.Client;
 using StackExchange.Redis;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,10 +20,22 @@ var redisConn = builder.Configuration["Redis:Connection"] ?? "redis:6379";
 var rabbitHost = builder.Configuration["Rabbit:Host"] ?? "rabbitmq";
 var rabbitUser = builder.Configuration["Rabbit:User"] ?? "guest";
 var rabbitPass = builder.Configuration["Rabbit:Pass"] ?? "guest";
-var rabbitUri  = new Uri($"amqp://{rabbitUser}:{rabbitPass}@{rabbitHost}/");
+var rabbitUri = new Uri($"amqp://{rabbitUser}:{rabbitPass}@{rabbitHost}/");
 
 // ---------- INFRA ----------
 builder.Services.AddDbContext<EmailDbContext>(o => o.UseNpgsql(pg));
+
+// Swagger / OpenAPI
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(o =>
+{
+    o.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Email Service API",
+        Version = "v1",
+        Description = "API para enfileirar e consultar emails enviados pelo pipeline."
+    });
+});
 
 builder.Services.AddHealthChecks()
     .AddNpgSql(pg)
@@ -66,16 +79,43 @@ builder.Services.AddOpenTelemetry()
 
 var app = builder.Build();
 
-// apply migrations
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<EmailDbContext>();
-    db.Database.Migrate();
+    var sql = """
+    CREATE TABLE IF NOT EXISTS "Emails" (
+        "Id" uuid PRIMARY KEY,
+        "To" varchar(512) NOT NULL,
+        "Subject" varchar(256) NOT NULL,
+        "Body" text NOT NULL,
+        "IdempotencyKey" varchar(128) NOT NULL,
+        "Status" int NOT NULL,
+        "CreatedAtUtc" timestamp without time zone NOT NULL,
+        "SentAtUtc" timestamp without time zone NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_emails_idemp ON "Emails"("IdempotencyKey");
+    CREATE TABLE IF NOT EXISTS "EmailAttempts" (
+        "Id" bigserial PRIMARY KEY,
+        "EmailId" uuid NOT NULL REFERENCES "Emails"("Id") ON DELETE CASCADE,
+        "AttemptNumber" int NOT NULL,
+        "Success" boolean NOT NULL,
+        "Error" text NULL,
+        "TimestampUtc" timestamp without time zone NOT NULL
+    );
+    """;
+    db.Database.ExecuteSqlRaw(sql);
 }
 
 // ---------- ENDPOINTS ----------
 app.MapHealthChecks("/health");
 app.MapGet("/", () => Results.Redirect("/health"));
+
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Email Service API v1");
+    c.RoutePrefix = "swagger";
+});
 
 // POST /emails -> DB + POST RabbitMQ
 app.MapPost("/emails", async (EmailDbContext db, IPublishEndpoint bus, IConnectionMultiplexer redis, EmailDto dto) =>

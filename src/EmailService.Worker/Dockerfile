@@ -8,7 +8,7 @@ COPY EmailService.Worker ./EmailService.Worker
 RUN dotnet restore ./EmailService.Worker/EmailService.Worker.csproj
 RUN dotnet publish ./EmailService.Worker/EmailService.Worker.csproj -c Release -o /app
 
-FROM mcr.microsoft.com/dotnet/runtime:8.0
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
 COPY --from=build /app .
 ENTRYPOINT ["dotnet", "EmailService.Worker.dll"]
