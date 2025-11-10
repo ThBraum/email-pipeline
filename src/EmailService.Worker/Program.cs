@@ -18,12 +18,14 @@ var smtpHost = builder.Configuration["Smtp:Host"] ?? "mailhog"; // dev mailhog
 var smtpPort = int.TryParse(builder.Configuration["Smtp:Port"], out var p) ? p : 1025;
 var smtpUser = builder.Configuration["Smtp:User"]; // optional
 var smtpPass = builder.Configuration["Smtp:Pass"]; // optional
+var smtpEnableSsl = bool.TryParse(builder.Configuration["Smtp:EnableSsl"], out var ssl) ? ssl : false;
+var smtpFrom = builder.Configuration["Smtp:From"]; // optional
 
 // ---- INFRA / EF ----
 builder.Services.AddDbContext<EmailDbContext>(o => o.UseNpgsql(pg));
 
 // ---- EMAIL SENDER ----
-builder.Services.AddScoped<IEmailSender>(_ => new SmtpEmailSender(smtpHost, smtpPort, smtpUser, smtpPass));
+builder.Services.AddScoped<IEmailSender>(_ => new SmtpEmailSender(smtpHost, smtpPort, smtpUser, smtpPass, smtpEnableSsl, smtpFrom));
 
 // ---- MASS TRANSIT ----
 builder.Services.AddMassTransit(x =>
