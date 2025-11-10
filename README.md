@@ -5,6 +5,11 @@ Email Pipeline
 
 This project demonstrates an asynchronous and resilient email delivery pipeline with observability, built in .NET 8.
 
+![EMAIL](image.png)
+![SWAGGER](image-1.png)
+![idempotencyKey](image-2.png)
+![REQUESTINFO](image-3.png)
+
 Architecture diagram
 --------------------
 
@@ -108,6 +113,61 @@ docker compose up -d --build
 
 If you have `docker` as the terminal in your system, use the same commands there.
 
+Environment (.env)
+-------------------
+
+This repo uses a `.env` file to configure the API and Worker when running with Docker. A safe template is available as `.env.sample`.
+
+- Copy it and customize:
+
+```zsh
+cp .env.sample .env
+# edit values as needed (Gmail SMTP, passwords, etc.)
+```
+
+- Never commit real credentials. The `.gitignore` already excludes `.env`.
+- Key groups in `.env`:
+  - PostgreSQL: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`
+  - RabbitMQ: `Rabbit__Host`, `Rabbit__User`, `Rabbit__Pass`
+  - Redis: `Redis__Connection`
+  - OpenTelemetry: `Otel__Endpoint`
+  - SMTP: `Smtp__Host`, `Smtp__Port`, `Smtp__EnableSsl`, `Smtp__User`, `Smtp__Pass`, `Smtp__From`
+
+SMTP configuration
+------------------
+
+You can use Mailhog for development or Gmail (with App Password) for real delivery:
+
+- Mailhog (default dev):
+  - Mailhog runs via docker-compose on ports 1025 (SMTP) and 8025 (Web UI).
+  - Set in `.env` (or leave defaults):
+    - `Smtp__Host=mailhog`
+    - `Smtp__Port=1025`
+    - `Smtp__EnableSsl=false`
+    - leave `Smtp__User`, `Smtp__Pass`, `Smtp__From` empty
+  - Open http://localhost:8025 to view captured emails.
+
+- Gmail (production-like):
+  - Requires a Google App Password (two-factor auth enabled on the account).
+  - Set in `.env`:
+    - `Smtp__Host=smtp.gmail.com`
+    - `Smtp__Port=587`
+    - `Smtp__EnableSsl=true`
+    - `Smtp__User=seu_email@gmail.com`
+    - `Smtp__Pass=<app_password_gerado_no_google>`
+    - `Smtp__From=seu_email@gmail.com`
+  - Notes:
+    - App Passwords are different from your Google password. See Google Account → Security → App passwords.
+    - Don’t commit `.env`. Treat it as a secret.
+
+Swagger UI
+----------
+
+The API exposes Swagger/OpenAPI for interactive testing and documentation:
+
+- Navigate to http://localhost:8080/swagger when running via Docker.
+- The OpenAPI JSON is at http://localhost:8080/swagger/v1/swagger.json.
+
 ## Endpoints
 
 ### `POST /emails`
@@ -203,3 +263,12 @@ Troubleshooting
 ```zsh
 docker compose logs -f
 ```
+
+Developer notes / next steps
+----------------------------
+
+- EF Core Migrations: currently the API bootstraps tables with raw SQL on startup. A future improvement is to add EF Core migrations and switch to `Database.Migrate()` for schema changes.
+- Pre-commit hooks: this repo includes `.pre-commit-config.yaml` with hooks to run `dotnet format` and `dotnet test` against `src/EmailPipeline.sln`.
+  - Install once: `pipx install pre-commit` or `pip install pre-commit`
+  - Enable in the repo: `pre-commit install`
+  - Run on demand: `pre-commit run --all-files`
