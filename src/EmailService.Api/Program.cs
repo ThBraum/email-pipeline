@@ -78,9 +78,18 @@ builder.Services.AddAuthentication(options =>
     options.ClientId = builder.Configuration["Authentication:Google:ClientId"];
     options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
     options.Scope.Add("https://www.googleapis.com/auth/gmail.readonly");
+    options.CallbackPath = "/auth/google";
 });
 
 builder.Services.AddAuthorization();
+
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.SetIsOriginAllowed(origin => true).AllowAnyHeader().AllowAnyMethod().AllowCredentials();
+    });
+});
 
 builder.Services.AddHealthChecks()
     .AddNpgSql(pg)
@@ -125,6 +134,7 @@ builder.Services.AddOpenTelemetry()
 var app = builder.Build();
 
 app.UseAuthentication();
+app.UseCors();
 app.UseAuthorization();
 
 using (var scope = app.Services.CreateScope())
@@ -177,7 +187,8 @@ app.UseSwaggerUI(c =>
 });
 
 // Google Authentication
-app.MapGet("/auth/google", () => Results.Challenge(new AuthenticationProperties { RedirectUri = "/" }, new[] { GoogleDefaults.AuthenticationScheme }));
+app.MapGet("/auth/google", () =>
+    Results.Challenge(new AuthenticationProperties { RedirectUri = "/" }, new[] { GoogleDefaults.AuthenticationScheme }));
 app.MapGet("/auth/logout", async (HttpContext ctx) =>
 {
     await ctx.SignOutAsync();
