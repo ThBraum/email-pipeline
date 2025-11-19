@@ -46,7 +46,7 @@ public class EmailRequestConsumer : IConsumer<EmailRequestMessage>
 
         var attemptNumber = await _db.Attempts.CountAsync(a => a.EmailId == email.Id, context.CancellationToken) + 1;
 
-        var (success, error) = await _sender.SendAsync(msg.To, msg.Subject, msg.Body, context.CancellationToken);
+        var (success, error) = await _sender.SendAsync(msg.From, msg.To, msg.Subject, msg.Body, context.CancellationToken);
 
         _db.Attempts.Add(new EmailAttempt
         {

@@ -10,6 +10,7 @@ public enum EmailStatus { Queued, Sent, Failed }
 public class Email
 {
     [Key] public Guid Id { get; set; }
+    [MaxLength(512)] public string From { get; set; } = default!;
     [MaxLength(512)] public string To { get; set; } = default!;
     [MaxLength(256)] public string Subject { get; set; } = default!;
     public string Body { get; set; } = default!;
@@ -32,11 +33,24 @@ public class EmailAttempt
     public DateTime TimestampUtc { get; set; } = DateTime.UtcNow;
 }
 
+[Table("ReceivedEmails")]
+public class ReceivedEmail
+{
+    [Key] public Guid Id { get; set; }
+    [MaxLength(512)] public string To { get; set; } = default!;
+    [MaxLength(512)] public string From { get; set; } = default!;
+    [MaxLength(256)] public string Subject { get; set; } = default!;
+    public string Body { get; set; } = default!;
+    public DateTime ReceivedAtUtc { get; set; } = DateTime.UtcNow;
+    [MaxLength(256)] public string MessageId { get; set; } = default!;
+}
+
 public class EmailDbContext : DbContext
 {
     public EmailDbContext(DbContextOptions<EmailDbContext> options) : base(options) { }
     public DbSet<Email> Emails => Set<Email>();
     public DbSet<EmailAttempt> Attempts => Set<EmailAttempt>();
+    public DbSet<ReceivedEmail> ReceivedEmails => Set<ReceivedEmail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -44,5 +58,7 @@ public class EmailDbContext : DbContext
         b.Entity<Email>().HasIndex(x => x.IdempotencyKey).IsUnique(false);
         b.Entity<EmailAttempt>().ToTable("EmailAttempts");
         b.Entity<EmailAttempt>().HasOne(a => a.Email).WithMany(e => e.Attempts).HasForeignKey(a => a.EmailId);
+        b.Entity<ReceivedEmail>().ToTable("ReceivedEmails");
+        b.Entity<ReceivedEmail>().HasIndex(x => x.MessageId).IsUnique();
     }
 }

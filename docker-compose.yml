@@ -6,6 +6,8 @@ services:
       dockerfile: ./EmailService.Api/Dockerfile
     env_file:
       - ./.env
+    environment:
+      ASPNETCORE_URLS: http://+:8080
     ports:
       - "8080:8080"
     depends_on:
@@ -19,6 +21,11 @@ services:
         condition: service_started
       otel-collector:
         condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     restart: unless-stopped
   worker:
     build:

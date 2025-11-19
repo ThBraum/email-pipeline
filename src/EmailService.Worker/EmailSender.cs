@@ -6,7 +6,7 @@ namespace EmailService.Worker;
 
 public interface IEmailSender
 {
-    Task<(bool success, string? error)> SendAsync(string to, string subject, string body, CancellationToken ct = default);
+    Task<(bool success, string? error)> SendAsync(string from, string to, string subject, string body, CancellationToken ct = default);
 }
 
 public class SmtpEmailSender : IEmailSender
@@ -28,7 +28,7 @@ public class SmtpEmailSender : IEmailSender
         _from = string.IsNullOrWhiteSpace(from) ? (user ?? "no-reply@example.com") : from;
     }
 
-    public async Task<(bool success, string? error)> SendAsync(string to, string subject, string body, CancellationToken ct = default)
+    public async Task<(bool success, string? error)> SendAsync(string from, string to, string subject, string body, CancellationToken ct = default)
     {
         try
         {
@@ -42,7 +42,7 @@ public class SmtpEmailSender : IEmailSender
                     : null
             };
 
-            using var mail = new MailMessage(_from, to, subject, body);
+            using var mail = new MailMessage(from, to, subject, body);
             await client.SendMailAsync(mail, ct);
             return (true, null);
         }
