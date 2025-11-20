@@ -7,7 +7,10 @@ services:
     env_file:
       - ./.env
     environment:
-      ASPNETCORE_URLS: http://+:8080
+      - ASPNETCORE_URLS=http://+:8080
+      # Provide them via host env vars or docker secrets:
+      - Authentication__Google__ClientId
+      - Authentication__Google__ClientSecret
     ports:
       - "8080:8080"
     depends_on:
@@ -33,6 +36,9 @@ services:
       dockerfile: ./EmailService.Worker/Dockerfile
     env_file:
       - ./.env
+    environment:
+      - Authentication__Google__ClientId
+      - Authentication__Google__ClientSecret
     depends_on:
       postgres:
         condition: service_healthy

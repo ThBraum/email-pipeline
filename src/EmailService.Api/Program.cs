@@ -67,19 +67,29 @@ builder.Services.AddSwaggerGen(o =>
 });
 
 // Authentication
-builder.Services.AddAuthentication(options =>
+var googleClientId = builder.Configuration["Authentication:Google:ClientId"];
+var googleClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+
+var authBuilder = builder.Services.AddAuthentication(options =>
 {
     options.DefaultScheme = "Cookies";
     options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
 })
-.AddCookie()
-.AddGoogle(options =>
+    .AddCookie();
+
+if (!string.IsNullOrWhiteSpace(googleClientId) && !string.IsNullOrWhiteSpace(googleClientSecret))
 {
-    options.ClientId = builder.Configuration["Authentication:Google:ClientId"];
-    options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
-    options.Scope.Add("https://www.googleapis.com/auth/gmail.readonly");
-    options.CallbackPath = "/auth/google";
-});
+    authBuilder.AddGoogle(options =>
+    {
+        options.ClientId = googleClientId;
+        options.ClientSecret = googleClientSecret;
+        options.Scope.Add("https://www.googleapis.com/auth/gmail.readonly");
+    });
+}
+else
+{
+    Console.WriteLine("Aviso: Google OAuth não configurado (Authentication:Google:ClientId/ClientSecret faltando). Endpoint /auth/google ficará indisponível.");
+}
 
 builder.Services.AddAuthorization();
 
@@ -137,42 +147,50 @@ app.UseAuthentication();
 app.UseCors();
 app.UseAuthorization();
 
-using (var scope = app.Services.CreateScope())
+try
 {
-    var db = scope.ServiceProvider.GetRequiredService<EmailDbContext>();
-    var sql = """
-    CREATE TABLE IF NOT EXISTS "Emails" (
-        "Id" uuid PRIMARY KEY,
-        "From" varchar(512) NOT NULL,
-        "To" varchar(512) NOT NULL,
-        "Subject" varchar(256) NOT NULL,
-        "Body" text NOT NULL,
-        "IdempotencyKey" varchar(128) NOT NULL,
-        "Status" int NOT NULL,
-        "CreatedAtUtc" timestamp without time zone NOT NULL,
-        "SentAtUtc" timestamp without time zone NULL
-    );
-    CREATE INDEX IF NOT EXISTS idx_emails_idemp ON "Emails"("IdempotencyKey");
-    CREATE TABLE IF NOT EXISTS "EmailAttempts" (
-        "Id" bigserial PRIMARY KEY,
-        "EmailId" uuid NOT NULL REFERENCES "Emails"("Id") ON DELETE CASCADE,
-        "AttemptNumber" int NOT NULL,
-        "Success" boolean NOT NULL,
-        "Error" text NULL,
-        "TimestampUtc" timestamp without time zone NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS "ReceivedEmails" (
-        "Id" uuid PRIMARY KEY,
-        "To" varchar(512) NOT NULL,
-        "From" varchar(512) NOT NULL,
-        "Subject" varchar(256) NOT NULL,
-        "Body" text NOT NULL,
-        "ReceivedAtUtc" timestamp without time zone NOT NULL,
-        "MessageId" varchar(256) UNIQUE NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS idx_received_messageid ON "ReceivedEmails"("MessageId");
-    """;
-    db.Database.ExecuteSqlRaw(sql);
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<EmailDbContext>();
+        var sql = """
+        CREATE TABLE IF NOT EXISTS "Emails" (
+            "Id" uuid PRIMARY KEY,
+            "From" varchar(512) NOT NULL,
+            "To" varchar(512) NOT NULL,
+            "Subject" varchar(256) NOT NULL,
+            "Body" text NOT NULL,
+            "IdempotencyKey" varchar(128) NOT NULL,
+            "Status" int NOT NULL,
+            "CreatedAtUtc" timestamp without time zone NOT NULL,
+            "SentAtUtc" timestamp without time zone NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_emails_idemp ON "Emails"("IdempotencyKey");
+        CREATE TABLE IF NOT EXISTS "EmailAttempts" (
+            "Id" bigserial PRIMARY KEY,
+            "EmailId" uuid NOT NULL REFERENCES "Emails"("Id") ON DELETE CASCADE,
+            "AttemptNumber" int NOT NULL,
+            "Success" boolean NOT NULL,
+            "Error" text NULL,
+            "TimestampUtc" timestamp without time zone NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS "ReceivedEmails" (
+            "Id" uuid PRIMARY KEY,
+            "To" varchar(512) NOT NULL,
+            "From" varchar(512) NOT NULL,
+            "Subject" varchar(256) NOT NULL,
+            "Body" text NOT NULL,
+            "ReceivedAtUtc" timestamp without time zone NOT NULL,
+            "MessageId" varchar(256) UNIQUE NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_received_messageid ON "ReceivedEmails"("MessageId");
+        """;
+        db.Database.ExecuteSqlRaw(sql);
+    }
+}
+catch (Exception ex)
+{
+    // Não falhar na inicialização da aplicação por problemas de infra durante testes locais.
+    Console.WriteLine($"Aviso ao criar esquema do DB: {ex.Message}");
 }
 
 // ---------- ENDPOINTS ----------
@@ -187,8 +205,19 @@ app.UseSwaggerUI(c =>
 });
 
 // Google Authentication
-app.MapGet("/auth/google", () =>
-    Results.Challenge(new AuthenticationProperties { RedirectUri = "/" }, new[] { GoogleDefaults.AuthenticationScheme }));
+var googleConfigured = !string.IsNullOrWhiteSpace(builder.Configuration["Authentication:Google:ClientId"]) 
+    && !string.IsNullOrWhiteSpace(builder.Configuration["Authentication:Google:ClientSecret"]);
+
+if (googleConfigured)
+{
+    app.MapGet("/auth/google", () =>
+        Results.Challenge(new AuthenticationProperties { RedirectUri = "/" }, new[] { GoogleDefaults.AuthenticationScheme }));
+}
+else
+{
+    app.MapGet("/auth/google", () => Results.Problem("Google OAuth não configurado", statusCode: 503));
+}
+
 app.MapGet("/auth/logout", async (HttpContext ctx) =>
 {
     await ctx.SignOutAsync();
@@ -319,7 +348,9 @@ app.MapPost("/emails/sync-received", [Authorize] async (EmailDbContext db, HttpC
                 From = from,
                 Subject = subject,
                 Body = body,
-                ReceivedAtUtc = DateTimeOffset.FromUnixTimeMilliseconds((long)message.InternalDate).UtcDateTime,
+                ReceivedAtUtc = message.InternalDate.HasValue
+                    ? DateTimeOffset.FromUnixTimeMilliseconds(message.InternalDate.Value).UtcDateTime
+                    : DateTime.UtcNow,
                 MessageId = msg.Id
             };
 
